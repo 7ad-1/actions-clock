@@ -28,8 +28,8 @@ on:
     - cron: "4 21 * * 1-5"
     # weekly-slow: Wednesdays 16:00Z
     - cron: "8 16 * * 3"
-    # weekend-crypto: Sat/Sun 01:00 + 13:00Z
-    - cron: "4 1,13 * * 0,6"
+    # weekend-crypto: Sat/Sun 01:00, 07:00, 13:00, 19:00Z (4x exit checks)
+    - cron: "4 1,7,13,19 * * 0,6"
     # sunday-review: Sundays 15:00Z
     - cron: "6 15 * * 0"
     # self-test (every 5 min; DELETE after initial verification)
@@ -58,7 +58,7 @@ jobs:
             "33 15 * * 1-5")      WF=events.yml ;;
             "4 21 * * 1-5")       WF=learn.yml ;;
             "8 16 * * 3")         WF=weekly.yml ;;
-            "4 1,13 * * 0,6")     WF=weekend-crypto.yml ;;
+            "4 1,7,13,19 * * 0,6")  WF=weekend-crypto.yml ;;
             "6 15 * * 0")         WF=sunday-review.yml ;;
             "*/5 * * * *")        WF=test-scheduler.yml ;;  # DELETE after verification
             *) echo "unmapped schedule: $SCHEDULE"; exit 1 ;;
