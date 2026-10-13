@@ -1,0 +1,73 @@
+name: clock
+
+# Public-repo scheduler for the PRIVATE trading-bot repo.
+#
+# Why this exists: GitHub's cron scheduler has a known bug where `schedule`
+# triggers are never registered for private repos on personal FREE accounts
+# (community discussion #201354). Public repos' schedules work fine, and
+# public repos have unlimited Actions minutes. So this free, public "clock"
+# fires workflow_dispatch on the private repo on the same cadence the
+# private repo's own (dead) crons describe.
+#
+# Cron minutes are offset from :00/:35 to dodge GitHub's top-of-hour load
+# spikes (scheduled runs drop under load; dispatches do not — they queue).
+#
+# If GitHub ever fixes schedule-in-private-repo, REMOVE this clock and
+# restore `on: schedule` in the private repo's workflows, or runs double up
+# (idempotency guards exist, but one source of truth is cleaner).
+
+on:
+  schedule:
+    # market-session: every 30 min, 13:05-19:35Z weekdays (PT market hours)
+    - cron: "8,38 13-19 * * 1-5"
+    # events-daily: weekdays 15:30Z
+    - cron: "33 15 * * 1-5"
+    # learn-nightly: weekdays 21:00Z
+    - cron: "4 21 * * 1-5"
+    # weekly-slow: Wednesdays 16:00Z
+    - cron: "8 16 * * 3"
+    # weekend-crypto: Sat/Sun 01:00 + 13:00Z
+    - cron: "4 1,13 * * 0,6"
+    # sunday-review: Sundays 15:00Z
+    - cron: "6 15 * * 0"
+    # self-test (every 5 min; DELETE after initial verification)
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: clock-dispatch
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Map cron to target workflow
+        id: map
+        env:
+          SCHEDULE: ${{ github.event.schedule }}
+        run: |
+          case "$SCHEDULE" in
+            "8,38 13-19 * * 1-5") WF=market.yml ;;
+            "33 15 * * 1-5")      WF=events.yml ;;
+            "4 21 * * 1-5")       WF=learn.yml ;;
+            "8 16 * * 3")         WF=weekly.yml ;;
+            "4 1,13 * * 0,6")     WF=weekend-crypto.yml ;;
+            "6 15 * * 0")         WF=sunday-review.yml ;;
+            "*/5 * * * *")        WF=test-scheduler.yml ;;  # DELETE after verification
+            *) echo "unmapped schedule: $SCHEDULE"; exit 1 ;;
+          esac
+          echo "wf=$WF" >> "$GITHUB_OUTPUT"
+          echo "clock tick $SCHEDULE -> $WF"
+
+      - name: Dispatch on private bot repo
+        env:
+          GH_TOKEN: ${{ secrets.CLOCK_PAT }}
+        run: |
+          gh workflow run "${{ steps.map.outputs.wf }}" \
+            --repo 7ad-1/trading-bot --ref main
+          echo "dispatched ${{ steps.map.outputs.wf }}"
