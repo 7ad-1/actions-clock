@@ -18,8 +18,10 @@ name: clock
 
 on:
   schedule:
-    # market-session: every 30 min, 13:05-19:35Z weekdays (PT market hours)
-    - cron: "8,38 13-19 * * 1-5"
+    # market-session: every 30 min, 13:05-20:35Z weekdays (through 13:35pm PT
+    # so the 12:55pm PT close thresholds fire — the old 13-19 window ended at
+    # 12:35pm PT and NEVER reached them)
+    - cron: "8,38 13-20 * * 1-5"
     # events-daily: weekdays 15:30Z
     - cron: "33 15 * * 1-5"
     # learn-nightly: weekdays 21:00Z
@@ -52,7 +54,7 @@ jobs:
           SCHEDULE: ${{ github.event.schedule }}
         run: |
           case "$SCHEDULE" in
-            "8,38 13-19 * * 1-5") WF=market.yml ;;
+            "8,38 13-20 * * 1-5") WF=market.yml ;;
             "33 15 * * 1-5")      WF=events.yml ;;
             "4 21 * * 1-5")       WF=learn.yml ;;
             "8 16 * * 3")         WF=weekly.yml ;;
